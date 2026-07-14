@@ -77,7 +77,7 @@ a {
 }
 
 .tab-btn {
-  padding: 0.4rem 1.1rem;
+  padding: 0.75rem 1.1rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: none;
@@ -86,11 +86,6 @@ a {
   font-family: inherit;
   cursor: pointer;
   transition: color 0.2s, background 0.2s, border-color 0.2s;
-}
-
-.tab-btn:hover {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .tab-btn.active {
@@ -157,11 +152,6 @@ a {
   transition: color 0.2s, transform 0.2s;
 }
 
-.social-link:hover {
-  color: var(--accent);
-  transform: translateY(-2px);
-}
-
 .social-username {
   margin-top: 0.75rem;
   font-size: 0.85rem;
@@ -178,10 +168,6 @@ a {
 
 .about-text a {
   color: var(--accent);
-}
-
-.about-text a:hover {
-  text-decoration: underline;
 }
 
 /* === Tech Stack === */
@@ -210,10 +196,6 @@ a {
   color: var(--text-muted);
 }
 
-.tech-strip .icon-wrap:hover svg {
-  color: var(--accent);
-}
-
 .tech-dot {
   color: var(--text-muted);
   font-size: 1rem;
@@ -229,6 +211,9 @@ a {
 .gh-activity {
   font-size: 0.7rem;
   text-align: left;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .gh-activity-header {
@@ -340,24 +325,15 @@ a {
   white-space: nowrap;
 }
 
-.project-row .name:hover {
-  color: var(--accent);
-}
-
 .site-link {
   font-size: 0.75rem;
-  padding: 0.2rem 0.55rem;
+  padding: 0.35rem 0.65rem;
   border-radius: 999px;
   border: 1px solid var(--accent-dim);
   color: var(--accent);
   white-space: nowrap;
   flex-shrink: 0;
   transition: background 0.2s, color 0.2s;
-}
-
-.site-link:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 .site-link--na {
@@ -381,7 +357,7 @@ a {
 
 .footer-pill {
   display: inline-block;
-  padding: 0.15rem 0.55rem;
+  padding: 0.6rem 0.6rem;
   border-radius: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -393,11 +369,6 @@ a {
 .footer-btn {
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
-}
-
-.footer-btn:hover {
-  border-color: var(--accent-dim);
-  color: var(--accent);
 }
 
 .footer-dot {
@@ -467,11 +438,6 @@ a {
   transition: background 0.2s, color 0.2s;
 }
 
-.friend-link:hover {
-  background: var(--accent);
-  color: #fff;
-}
-
 /* === Time modal === */
 .time-box {
   max-width: 480px;
@@ -512,8 +478,8 @@ a {
   position: fixed;
   bottom: 1.25rem;
   right: 1.25rem;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -527,17 +493,67 @@ a {
   line-height: 1;
 }
 
-.theme-toggle:hover {
-  border-color: var(--accent-dim);
-  color: var(--text);
-}
-
 .theme-toggle svg {
   width: 18px;
   height: 18px;
 }
 
+/* === Hover states (skip on touch so taps don't leave a stuck highlight) === */
+@media (hover: hover) and (pointer: fine) {
+  .tab-btn:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .social-link:hover {
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .about-text a:hover {
+    text-decoration: underline;
+  }
+
+  .tech-strip .icon-wrap:hover svg {
+    color: var(--accent);
+  }
+
+  .project-row .name:hover {
+    color: var(--accent);
+  }
+
+  .site-link:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .footer-btn:hover {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .friend-link:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--accent-dim);
+    color: var(--text);
+  }
+}
+
 /* === Responsive === */
+@media (max-width: 700px) {
+  .page {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .hero-name {
+    font-size: 2.4rem;
+  }
+}
+
 @media (max-width: 540px) {
   .page {
     padding: 1rem;
@@ -545,11 +561,6 @@ a {
 
   .hero-name {
     font-size: 2.2rem;
-  }
-
-  .gh-activity {
-    max-width: 100%;
-    overflow-x: auto;
   }
 
   .theme-toggle {

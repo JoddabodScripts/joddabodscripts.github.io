@@ -54,7 +54,7 @@
     greetingEl.textContent = greeting;
   }
 
-  /* ── Social hover usernames ── */
+  /* ── Social hover/tap usernames ── */
   var usernameEl = document.getElementById('social-username');
   if (usernameEl) {
     document.querySelectorAll('.social-link[data-username]').forEach(function (link) {
@@ -63,6 +63,15 @@
       });
       link.addEventListener('mouseleave', function () {
         usernameEl.innerHTML = '&nbsp;';
+      });
+      link.addEventListener('focus', function () {
+        usernameEl.textContent = link.dataset.username;
+      });
+      link.addEventListener('blur', function () {
+        usernameEl.innerHTML = '&nbsp;';
+      });
+      link.addEventListener('touchstart', function () {
+        usernameEl.textContent = link.dataset.username;
       });
     });
   }
