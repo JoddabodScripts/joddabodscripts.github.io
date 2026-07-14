@@ -246,6 +246,8 @@
 
   /* ── GitHub activity graph ── */
   var ghSection = document.getElementById('github-activity');
+  var ghMobileQuery = window.matchMedia('(max-width: 700px)');
+  var ghLastData = null;
 
   function renderActivity(data) {
     if (!data || !data.contributions) {
@@ -253,7 +255,24 @@
       return;
     }
 
+    ghLastData = data;
+    var isMobile = ghMobileQuery.matches;
     var contribs = data.contributions;
+    var headerLabel;
+
+    if (isMobile) {
+      var cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 29);
+      contribs = contribs.filter(function (c) {
+        return new Date(c.date) >= cutoff;
+      });
+      var monthTotal = contribs.reduce(function (sum, c) {
+        return sum + (c.count || 0);
+      }, 0);
+      headerLabel = monthTotal + ' contributions in the last month';
+    } else {
+      headerLabel = escapeHtml(data.total.lastYear) + ' contributions in the last year';
+    }
 
     var weeks = [];
     var currentWeek = [];
@@ -269,7 +288,7 @@
     if (currentWeek.length > 0) weeks.push(currentWeek);
 
     var tableHtml = '<div class="gh-activity"><div class="gh-activity-header">';
-    tableHtml += '<span>' + escapeHtml(data.total.lastYear) + ' contributions in the last year</span>';
+    tableHtml += '<span>' + headerLabel + '</span>';
     tableHtml += '</div><div class="gh-activity-grid">';
 
     var days = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -340,6 +359,15 @@
         .catch(function (err) {
           ghSection.innerHTML = '<p class="loading">Failed to load activity: ' + err.message + '</p>';
         });
+    }
+
+    var handleGhBreakpointChange = function () {
+      if (ghLastData) renderActivity(ghLastData);
+    };
+    if (ghMobileQuery.addEventListener) {
+      ghMobileQuery.addEventListener('change', handleGhBreakpointChange);
+    } else if (ghMobileQuery.addListener) {
+      ghMobileQuery.addListener(handleGhBreakpointChange);
     }
   }
 
