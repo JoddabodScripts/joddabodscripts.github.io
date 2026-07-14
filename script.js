@@ -1,21 +1,188 @@
 (function () {
   'use strict';
 
-  /* ── Tech stack carousel ── */
+  /* ── Tabs ── */
+  var tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      tabBtns.forEach(function (b) {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+
+      document.querySelectorAll('.panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      var panel = document.getElementById('panel-' + btn.dataset.tab);
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  /* ── Current time (Asia/Dubai) ── */
+  var timeEl = document.getElementById('current-time');
+
+  function updateCurrentTime() {
+    if (!timeEl) return;
+    var now = new Date();
+    timeEl.textContent = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Dubai',
+    }).format(now);
+    timeEl.setAttribute('datetime', now.toISOString());
+  }
+
+  updateCurrentTime();
+  var msToNextMinute = 60000 - (Date.now() % 60000);
+  setTimeout(function () {
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 60000);
+  }, msToNextMinute);
+
+  /* ── Greeting message ── */
+  var greetingEl = document.getElementById('greeting-message');
+  if (greetingEl) {
+    var hour = new Date().getHours();
+    var greeting;
+    if (hour < 5) greeting = 'Up late';
+    else if (hour < 12) greeting = 'Good morning';
+    else if (hour < 18) greeting = 'Good afternoon';
+    else greeting = 'Good evening';
+    greetingEl.textContent = greeting;
+  }
+
+  /* ── Social hover usernames ── */
+  var usernameEl = document.getElementById('social-username');
+  if (usernameEl) {
+    document.querySelectorAll('.social-link[data-username]').forEach(function (link) {
+      link.addEventListener('mouseenter', function () {
+        usernameEl.textContent = link.dataset.username;
+      });
+      link.addEventListener('mouseleave', function () {
+        usernameEl.innerHTML = '&nbsp;';
+      });
+    });
+  }
+
+  /* ── Modals ── */
+  document.querySelectorAll('.modal').forEach(function (modal) {
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) modal.classList.remove('active');
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal.active').forEach(function (m) {
+        m.classList.remove('active');
+      });
+    }
+  });
+
+  var friendsModal = document.getElementById('friends-modal');
+  var friendsBtn = document.getElementById('friends-btn');
+
+  if (friendsBtn && friendsModal) {
+    friendsBtn.addEventListener('click', function () {
+      friendsModal.classList.add('active');
+    });
+  }
+
+  /* ── Time modal ── */
+  var timeModal = document.getElementById('time-modal');
+  var timeBtn = document.getElementById('time-btn');
+  var timeClockEl = document.getElementById('time-modal-clock');
+  var timeUtcEl = document.getElementById('time-modal-utc');
+  var timeDescEl = document.getElementById('time-desc');
+
+  function utcOffsetHours(tz) {
+    var parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      timeZoneName: 'shortOffset',
+    }).formatToParts(new Date());
+    var name = '';
+    parts.forEach(function (p) {
+      if (p.type === 'timeZoneName') name = p.value;
+    });
+    var m = name.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    if (!m) return 0;
+    var h = parseInt(m[2], 10) + (m[3] ? parseInt(m[3], 10) / 60 : 0);
+    return m[1] === '-' ? -h : h;
+  }
+
+  function formatOffset(hours) {
+    var sign = hours < 0 ? '-' : '+';
+    var abs = Math.abs(hours);
+    var whole = Math.floor(abs);
+    var mins = Math.round((abs - whole) * 60);
+    return 'UTC' + sign + whole + (mins ? ':' + String(mins).padStart(2, '0') : '');
+  }
+
+  function formatHours(hours) {
+    var abs = Math.abs(hours);
+    var rounded = Math.round(abs * 100) / 100;
+    return rounded + (rounded === 1 ? ' hour' : ' hours');
+  }
+
+  function updateTimeModal() {
+    if (!timeModal.classList.contains('active')) {
+      clearInterval(timeTicker);
+      timeTicker = null;
+      return;
+    }
+    timeClockEl.textContent = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Dubai',
+    }).format(new Date());
+  }
+
+  var timeTicker = null;
+
+  if (timeBtn && timeModal) {
+    timeBtn.addEventListener('click', function () {
+      var myOffset = utcOffsetHours('Asia/Dubai');
+      var yourTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var yourOffset = utcOffsetHours(yourTz);
+      var diff = yourOffset - myOffset;
+
+      timeUtcEl.textContent = formatOffset(myOffset);
+
+      var hour = new Date().getHours();
+      var greeting;
+      if (hour < 5) greeting = 'Up late';
+      else if (hour < 12) greeting = 'Good morning';
+      else if (hour < 18) greeting = 'Good afternoon';
+      else greeting = 'Good evening';
+
+      var comparison;
+      if (diff === 0) {
+        comparison = 'which is the same as mine';
+      } else {
+        comparison =
+          'which is <span class="accent">' + formatHours(diff) + '</span> ' +
+          (diff > 0 ? 'ahead of' : 'behind') + ' my timezone';
+      }
+
+      timeDescEl.innerHTML =
+        greeting + ', your timezone is <span class="accent">' +
+        formatOffset(yourOffset) + '</span>, ' + comparison +
+        '. The above time is the current time in Dubai, United Arab Emirates, where I live.';
+
+      timeModal.classList.add('active');
+      updateTimeModal();
+      if (!timeTicker) timeTicker = setInterval(updateTimeModal, 1000);
+    });
+  }
+
+  /* ── Tech stack ── */
   var track = document.getElementById('tech-strip');
 
   if (track) {
-    var techs = [
-      { id: 'docker',   label: 'Docker' },
-      { id: 'sqlite',   label: 'SQLite' },
-      { id: 'arch',     label: 'Arch Linux' },
-      { id: 'js',       label: 'JavaScript' },
-      { id: 'ts',       label: 'TypeScript' },
-      { id: 'go',       label: 'Go' },
-      { id: 'git',      label: 'Git' },
-      { id: 'linux',    label: 'Linux' },
-    ];
-
     var icons = {
       docker:    '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13.983 11.078h2.119a.186.186 0 0 0 .186-.185V9.006a.186.186 0 0 0-.186-.186h-2.119a.185.185 0 0 0-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 0 0 .186-.186V3.574a.186.186 0 0 0-.186-.185h-2.118a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 0 0 .186-.186V6.29a.186.186 0 0 0-.186-.185h-2.118a.185.185 0 0 0-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 0 0 .184-.186V6.29a.185.185 0 0 0-.185-.185H8.1a.185.185 0 0 0-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 0 0 .185-.186V6.29a.185.185 0 0 0-.185-.185H5.136a.186.186 0 0 0-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 0 0 .186-.185V9.006a.186.186 0 0 0-.186-.186h-2.118a.185.185 0 0 0-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 0 0 .184-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.185.185 0 0 0-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 0 0 .185-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.186.186 0 0 0-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 0 0 .184-.185V9.006a.185.185 0 0 0-.184-.186h-2.12a.185.185 0 0 0-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 0 0-.75.748 11.376 11.376 0 0 0 .692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 0 0 3.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/></svg>',
       sqlite:    '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21.678.521c-1.032-.92-2.28-.55-3.513.544a8.71 8.71 0 0 0-.547.535c-2.109 2.237-4.066 6.38-4.674 9.544.237.48.422 1.093.544 1.561a13.044 13.044 0 0 1 .164.703s-.019-.071-.096-.296l-.05-.146a1.689 1.689 0 0 0-.033-.08c-.138-.32-.518-.995-.686-1.289-.143.423-.27.818-.376 1.176.484.884.778 2.4.778 2.4s-.025-.099-.147-.442c-.107-.303-.644-1.244-.772-1.464-.217.804-.304 1.346-.226 1.478.152.256.296.698.422 1.186.286 1.1.485 2.44.485 2.44l.017.224a22.41 22.41 0 0 0 .056 2.748c.095 1.146.273 2.13.5 2.657l.155-.084c-.334-1.038-.47-2.399-.41-3.967.09-2.398.642-5.29 1.661-8.304 1.723-4.55 4.113-8.201 6.3-9.945-1.993 1.8-4.692 7.63-5.5 9.788-.904 2.416-1.545 4.684-1.931 6.857.666-2.037 2.821-2.912 2.821-2.912s1.057-1.304 2.292-3.166c-.74.169-1.955.458-2.362.629-.6.251-.762.337-.762.337s1.945-1.184 3.613-1.72C21.695 7.9 24.195 2.767 21.678.521m-18.573.543A1.842 1.842 0 0 0 1.27 2.9v16.608a1.84 1.84 0 0 0 1.835 1.834h9.418a22.953 22.953 0 0 1-.052-2.707c-.006-.062-.011-.141-.016-.2a27.01 27.01 0 0 0-.473-2.378c-.121-.47-.275-.898-.369-1.057-.116-.197-.098-.31-.097-.432 0-.12.015-.245.037-.386a9.98 9.98 0 0 1 .234-1.045l.217-.028c-.017-.035-.014-.065-.031-.097l-.041-.381a32.8 32.8 0 0 1 .382-1.194l.2-.019c-.008-.016-.01-.038-.018-.053l-.043-.316c.63-3.28 2.587-7.443 4.8-9.791.066-.069.133-.128.198-.194Z"/></svg>',
@@ -167,10 +334,7 @@
     }
   }
 
-  /* ── Projects overlay ── */
-  var overlay = document.getElementById('projects-overlay');
-  var openBtn = document.getElementById('projects-btn');
-  var closeBtn = document.getElementById('overlay-close');
+  /* ── Projects ── */
   var list = document.getElementById('projects-list');
 
   var projects = [
@@ -202,23 +366,7 @@
     list.innerHTML = html;
   }
 
-  renderProjects();
-
-  function openOverlay() {
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeOverlay() {
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  if (openBtn) openBtn.addEventListener('click', openOverlay);
-  if (closeBtn) closeBtn.addEventListener('click', closeOverlay);
-  if (overlay) overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) closeOverlay();
-  });
+  if (list) renderProjects();
 
   /* ── Helpers ── */
   function escapeHtml(str) {
