@@ -182,6 +182,9 @@
     { name: 'quote-bot-nerimity', repo: 'https://github.com/JoddabodScripts/quote-bot-nerimity', site: 'https://nerimity.com/bot/1764179666803007488?perms=2' },
     { name: 'Neri-cat-bot', repo: 'https://github.com/JoddabodScripts/Neri-cat-bot', site: 'https://nerimity.com/bot/1769948866624536576?perms=2' },
     { name: 'Gun-bot-nerimity', repo: 'https://github.com/JoddabodScripts/Gun-bot-nerimity', site: 'https://nerimity.com/bot/1766352888835252224?perms=2' },
+    { name: 'neri-go', repo: 'https://github.com/JoddabodScripts/neri-go/', site: 'https://github.com/JoddabodScripts/neri-go/' },
+    { name: 'neritest', repo: 'https://github.com/JoddabodScripts/neritest/', site: 'https://github.com/JoddabodScripts/neritest/' },
+    { name: 'joddabodscripts.github.io', repo: 'https://github.com/JoddabodScripts/joddabodscripts.github.io/', site: 'joddabodscripts.github.io/' },
   ];
 
   function renderProjects() {
