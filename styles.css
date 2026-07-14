@@ -216,6 +216,13 @@ a {
   -webkit-overflow-scrolling: touch;
 }
 
+.gh-activity--compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
 .gh-activity-header {
   color: var(--text-muted);
   margin-bottom: 0.4rem;

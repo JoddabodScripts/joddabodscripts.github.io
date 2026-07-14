@@ -287,7 +287,7 @@
     });
     if (currentWeek.length > 0) weeks.push(currentWeek);
 
-    var tableHtml = '<div class="gh-activity"><div class="gh-activity-header">';
+    var tableHtml = '<div class="gh-activity' + (isMobile ? ' gh-activity--compact' : '') + '"><div class="gh-activity-header">';
     tableHtml += '<span>' + headerLabel + '</span>';
     tableHtml += '</div><div class="gh-activity-grid">';
 
