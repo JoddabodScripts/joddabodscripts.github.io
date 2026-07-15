@@ -20,8 +20,14 @@
   let idleTime = 0;
   let idleAnimation = null;
   let idleAnimationFrame = 0;
+  let nekoMoving = false;
 
   const nekoSpeed = 10;
+  // Milliseconds per behaviour/sprite tick. Larger = slower, calmer cat.
+  // The cat still travels nekoSpeed px per tick, so the walk cycle stays in
+  // step with the body no matter how this is tuned.
+  const tickInterval = 140;
+  const nekoSpeedPerMs = nekoSpeed / tickInterval;
   const spriteSets = {
     idle: [[-3, -3]],
     alert: [[-7, -3]],
@@ -154,6 +160,7 @@
   }
 
   let lastFrameTimestamp;
+  let lastTickTimestamp;
 
   function onAnimationFrame(timestamp) {
     // Stops execution if the neko element is removed from DOM
@@ -163,11 +170,46 @@
     if (!lastFrameTimestamp) {
       lastFrameTimestamp = timestamp;
     }
-    if (timestamp - lastFrameTimestamp > 100) {
-      lastFrameTimestamp = timestamp;
+    if (!lastTickTimestamp) {
+      lastTickTimestamp = timestamp;
+    }
+
+    // Sprite/behaviour logic keeps the chunky pixel-art cadence.
+    if (timestamp - lastTickTimestamp > tickInterval) {
+      lastTickTimestamp = timestamp;
       frame();
     }
+
+    // Position integrates every animation frame so motion stays smooth.
+    // Delta is clamped so a backgrounded tab doesn't cause one giant leap.
+    const delta = Math.min(timestamp - lastFrameTimestamp, tickInterval);
+    lastFrameTimestamp = timestamp;
+    if (nekoMoving) {
+      moveToward(delta);
+    }
+
     window.requestAnimationFrame(onAnimationFrame);
+  }
+
+  function moveToward(deltaMs) {
+    const diffX = nekoPosX - mousePosX;
+    const diffY = nekoPosY - mousePosY;
+    const distance = Math.sqrt(diffX ** 2 + diffY ** 2);
+
+    if (distance < 48) {
+      return;
+    }
+
+    // Never overshoot into the idle radius between logic ticks.
+    const step = Math.min(nekoSpeedPerMs * deltaMs, distance - 48);
+    nekoPosX -= (diffX / distance) * step;
+    nekoPosY -= (diffY / distance) * step;
+
+    nekoPosX = Math.min(Math.max(16, nekoPosX), window.innerWidth - 16);
+    nekoPosY = Math.min(Math.max(16, nekoPosY), window.innerHeight - 16);
+
+    nekoEl.style.left = `${nekoPosX - 16}px`;
+    nekoEl.style.top = `${nekoPosY - 16}px`;
   }
 
   function setSprite(name, frame) {
@@ -243,6 +285,7 @@
     const distance = Math.sqrt(diffX ** 2 + diffY ** 2);
 
     if (distance < nekoSpeed || distance < 48) {
+      nekoMoving = false;
       idle();
       return;
     }
@@ -251,6 +294,7 @@
     idleAnimationFrame = 0;
 
     if (idleTime > 1) {
+      nekoMoving = false;
       setSprite("alert", 0);
       // count down after being alerted before moving
       idleTime = Math.min(idleTime, 7);
@@ -265,14 +309,8 @@
     direction += diffX / distance < -0.5 ? "E" : "";
     setSprite(direction, frameCount);
 
-    nekoPosX -= (diffX / distance) * nekoSpeed;
-    nekoPosY -= (diffY / distance) * nekoSpeed;
-
-    nekoPosX = Math.min(Math.max(16, nekoPosX), window.innerWidth - 16);
-    nekoPosY = Math.min(Math.max(16, nekoPosY), window.innerHeight - 16);
-
-    nekoEl.style.left = `${nekoPosX - 16}px`;
-    nekoEl.style.top = `${nekoPosY - 16}px`;
+    // Actual position stepping happens in moveToward() every animation frame.
+    nekoMoving = true;
   }
 
   init();
