@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <meta name="description" content="Crumb Village. Joddabod's homepage, but you are a cursor in a tiny bakery village at night." />
+        <meta name="theme-color" content="#0b0e1a" />
+        <title>Crumb Village ~ Joddabod</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <canvas id="game"></canvas>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div id="hud-right">
+                <div id="campers" hidden>
+                    <span class="live-dot"></span><span id="campers-n">1</span> here
+                </div>
+                <button id="btn-sound" class="hud-btn" aria-label="Toggle sound">SFX</button>
+                <button id="btn-music" class="hud-btn" aria-label="Toggle music">MUSIC</button>
+                <a id="btn-back" class="hud-btn" href="../" aria-label="Back to the normal site">v1</a>
+            </div>
+            <div id="bag-counter" hidden>
+                <span id="bag-ico"></span><span id="bag-count">0/15</span>
+            </div>
+            <div id="zone-tag" hidden></div>
+        </div>
+
+        <div id="toasts"></div>
+        <div id="tooltip" hidden></div>
+        <div id="emote-menu" hidden></div>
+
+        <!-- Interior / info panels -->
+        <div id="overlay" hidden>
+            <!-- Noticeboard -->
+            <div class="cv-panel" id="panel-notice" hidden>
+                <button class="panel-close" aria-label="Close">x</button>
+                <h2>VILLAGE NOTICEBOARD</h2>
+                <p class="notice-welcome">
+                    Welcome to Joddabod's place. Go poke stuff.
+                </p>
+                <p class="notice-sub" id="visitors-line" hidden></p>
+                <h3>VILLAGE RECORDS</h3>
+                <div id="badge-list"></div>
+            </div>
+
+            <!-- House interior -->
+            <div class="cv-panel" id="panel-house" hidden>
+                <button class="panel-close" aria-label="Close">x</button>
+                <h2>JODDABOD'S HOUSE</h2>
+                <div class="house-room">
+                    <div class="frames">
+                        <div class="frame">
+                            <p>Hello! I'm <span class="accent">Joddabod</span>.</p>
+                        </div>
+                        <div class="frame">
+                            <p>I do JavaScript and web development, whatever tickles my fancy.</p>
+                        </div>
+                        <div class="frame">
+                            <p>Most of my projects are bots for <a href="https://nerimity.com" target="_blank" rel="noopener">Nerimity</a>.</p>
+                        </div>
+                    </div>
+                    <div class="shelf-wrap">
+                        <p class="shelf-label">the toolbox</p>
+                        <div id="shelf"></div>
+                        <div class="shelf-plank"></div>
+                    </div>
+                    <div class="fireplace">
+                        <div class="fire"></div>
+                        <div class="hearth"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hat shop -->
+            <div class="cv-panel" id="panel-hats" hidden>
+                <button class="panel-close" aria-label="Close">x</button>
+                <h2>THE HAT SHOP</h2>
+                <p class="notice-sub">No money accepted here. Hats are earned.</p>
+                <div id="hat-grid"></div>
+            </div>
+
+            <!-- Bottom of the well -->
+            <div class="cv-panel well-panel" id="panel-well" hidden>
+                <button class="panel-close" aria-label="Close">x</button>
+                <h2>THE BOTTOM OF THE WELL</h2>
+                <div class="well-room">
+                    <p>Someone carved words into the stone down here.</p>
+                    <p class="lore">"This village used to be three tabs and a footer.
+                    The cat came first. The bread came later.
+                    The number on the stones is not a coincidence."</p>
+                    <p class="lore">"If the band ever plays again, it starts with the
+                    drums, then the keys, then the strings, and the mic sings last."</p>
+                    <button id="well-baguette" aria-label="A baguette, somehow, down here"></button>
+                </div>
+            </div>
+        </div>
+
+        <noscript>
+            <div class="noscript-box">
+                Crumb Village needs JavaScript. The regular site lives
+                <a href="../">here</a>.
+            </div>
+        </noscript>
+
+        <script src="js/config.js"></script>
+        <script src="js/sprites.js"></script>
+        <script src="js/audio.js"></script>
+        <script src="js/save.js"></script>
+        <script src="js/world.js"></script>
+        <script src="js/net.js"></script>
+        <script src="js/game.js"></script>
+    </body>
+</html>

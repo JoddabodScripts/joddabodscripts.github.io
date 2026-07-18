@@ -389,6 +389,13 @@ a {
   vertical-align: middle;
 }
 
+/* The v2 beta pill ships hidden; script.js flips `hidden` off when the flag
+   is set. Without this rule the display values above would override [hidden]. */
+.footer-pill[hidden],
+.footer-dot[hidden] {
+  display: none;
+}
+
 /* === Modal === */
 .modal {
   position: fixed;

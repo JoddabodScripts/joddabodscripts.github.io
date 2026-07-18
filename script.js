@@ -1,6 +1,18 @@
 (function () {
   'use strict';
 
+  /* ── v2 beta gate ──
+     Flip this single line to true to show the "v2 beta" pill in the footer
+     (it links to /v2, the playable homepage). Nothing else needs changing. */
+  var V2_BETA_VISIBLE = true;
+
+  if (V2_BETA_VISIBLE) {
+    var betaLink = document.getElementById('v2-beta-link');
+    var betaDot = document.getElementById('v2-beta-dot');
+    if (betaLink) betaLink.hidden = false;
+    if (betaDot) betaDot.hidden = false;
+  }
+
   /* ── Tabs ── */
   var tabBtns = document.querySelectorAll('.tab-btn');
   tabBtns.forEach(function (btn) {

@@ -1,0 +1,13 @@
+name = "crumb-village"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Free-plan Durable Objects require the SQLite-backed storage class,
+# declared via new_sqlite_classes in the migration below.
+[[durable_objects.bindings]]
+name = "VILLAGE"
+class_name = "Village"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Village"]
