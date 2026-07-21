@@ -605,6 +605,84 @@ var SPR = {};
     ".M....M...",
     ".M....M...",
   ], { M: P.stone2 });
+
+  /* Two more hats */
+  SPR.hat_toque = makeSprite([
+    "..wwwwwwww..",
+    ".wwwwwwwwww.",
+    ".wWwwWWwwWw.",
+    ".wwwwwwwwww.",
+    "..wwwwwwww..",
+    "..gggggggg..",
+  ], { w: P.cream, W: "#ffffff", g: "#b8b4a8" });
+
+  SPR.hat_cap = makeSprite([
+    "...cccccc...",
+    "..cccccccc..",
+    ".cccccccccc.",
+    "cccccccccccc",
+    "bbbbbbbbbbbb",
+  ], { c: "#7d8a5a", b: "#5c6642" });
+
+  /* Bakery-case treats */
+  SPR.croissant = makeSprite([
+    ".bb...bb.",
+    "bccb.bccb",
+    "bcccbcccb",
+    ".bcccccb.",
+    "..bcccb..",
+    "...bbb...",
+  ], { b: P.bread0, c: P.bread2 });
+
+  SPR.cookie = makeSprite([
+    ".ccccc.",
+    "ccdccdc",
+    "cccccdc",
+    "cdccccc",
+    "ccdcdcc",
+    ".ccccc.",
+  ], { c: "#c98b47", d: "#5a3a1e" });
+
+  SPR.cupcake = makeSprite([
+    "...r...",
+    "..rrr..",
+    ".fffff.",
+    "fffffff",
+    ".BwBwB.",
+    ".BwBwB.",
+    "..BBB..",
+  ], { r: P.red, f: P.pink, B: P.wood1, w: P.wood2 });
+
+  SPR.donut = makeSprite([
+    ".oyogo.",
+    "oo...oo",
+    "y.....g",
+    "o.....o",
+    "g.....y",
+    "oo...oo",
+    ".ogoyo.",
+  ], { o: P.pink, y: P.gold2, g: P.grass3 });
+
+  SPR.pretzel = makeSprite([
+    ".bb..bb.",
+    "b.b..b.b",
+    "b..bb..b",
+    ".b.bb.b.",
+    "b.b..b.b",
+    ".bb..bb.",
+  ], { b: P.bread0 });
+
+  /* A shy bakery mouse (secret) */
+  SPR.mouse = makeSprite([
+    "gg......gg",
+    "gng....gng",
+    ".ggg..ggg.",
+    "..gggggg..",
+    ".gggEgggg.",
+    "gggggggggt",
+    ".gggggg..t",
+    "..gggg...t",
+  ], { g: P.stone2, n: P.pink, E: P.ink, t: P.stone1 });
 })();
 
 /* ── Procedural painters (static world background) ── */

@@ -363,6 +363,14 @@ a { color: var(--accent); text-decoration: none; }
   border-top: 4px solid #565b70;
 }
 
+/* Leave-room button (shown while inside an interior) */
+#leave-room {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  pointer-events: auto;
+}
+
 /* Hat shop */
 #hat-grid {
   display: grid;

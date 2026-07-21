@@ -312,6 +312,7 @@ var WORLD = (function () {
         onClick: function () {
           GAME.flags.lampOff[i] = !GAME.flags.lampOff[i];
           AUD.play("switch");
+          GAME.checkLamps();
         },
       });
     });
@@ -367,6 +368,12 @@ var WORLD = (function () {
       tip: "The bakery", sub: function () { return GAME.loafLine(); },
       draw: function () {},
       onClick: function () { AUD.play("wobble"); FX.crumbs(985, 212); },
+    });
+
+    add({
+      id: "bakerydoor", zone: "bakery", x: 993, y: 253, w: 16, h: 36,
+      tip: "Bakery door", sub: "Come in, it's warm",
+      onClick: function () { AUD.play("door"); GAME.enterRoom("bakery"); },
     });
 
     /* ═ HAT SHOP ═ */
@@ -510,8 +517,8 @@ var WORLD = (function () {
 
     add({
       id: "cafedoor", zone: "cafe", x: 1228, y: 518, w: 20, h: 36,
-      tip: "Cafe door", sub: "The bell is the best part",
-      onClick: function () { AUD.play("bell"); },
+      tip: "Cafe door", sub: "Mind the bell on your way in",
+      onClick: function () { AUD.play("bell"); GAME.enterRoom("cafe"); },
     });
 
     ["1198,596", "1288,600"].forEach(function (s, i) {
@@ -694,6 +701,351 @@ var WORLD = (function () {
     return maxN;
   }
 
+  /* ═══════════════════════════════ interior rooms ═══
+     Each is a self-contained little map: a paint() for the background and a
+     props list of clickable things. game.js swaps the active scene to one of
+     these when you walk through a door. */
+  var rooms = {};
+
+  /* ── The bakery interior ── */
+  (function buildBakeryRoom() {
+    var W2 = 520, H2 = 400;
+    var ox = 54, oy = 176;                 /* oven top-left, on the back floor */
+    var rprops = [];
+    function add(p) { rprops.push(p); return p; }
+
+    var TREAT_NAMES = {
+      loaf: "Sourdough loaf", baguette: "Baguette", croissant: "Croissant",
+      cookie: "Cookie", cupcake: "Cupcake", donut: "Donut", pretzel: "Pretzel",
+    };
+    function treat(id, sprName, x, y) {
+      var s = SPR[sprName], w = s.width * 3, h = s.height * 3;
+      add({
+        id: "treat_" + id, x: x, y: y, w: w, h: h,
+        tip: TREAT_NAMES[id], sub: "Have a taste",
+        draw: function (g, t, hov) {
+          var bob = hov && !CV.RM ? Math.round(Math.sin(t * 10)) : 0;
+          g.globalAlpha = GAME.isTasted(id) ? 0.35 : 1;
+          g.drawImage(s, x, y + bob, w, h);
+          g.globalAlpha = 1;
+          if (GAME.isTasted(id)) g.drawImage(SPR.star, x + w - 6, y - 4);
+        },
+        onClick: function (p) { GAME.tasteTreat(id); FX.crumbs(x + w / 2, y + h / 2); },
+      });
+    }
+
+    /* display-case treats */
+    var order = ["loaf", "baguette", "croissant", "cookie", "cupcake", "donut", "pretzel"];
+    var sprs = { loaf: "loaf", baguette: "baguette", croissant: "croissant", cookie: "cookie", cupcake: "cupcake", donut: "donut", pretzel: "pretzel" };
+    order.forEach(function (id, i) { treat(id, sprs[id], 156 + i * 40, 248); });
+
+    /* the communal oven — same shared dough as outside */
+    add({
+      id: "b_oven", zone: null, x: ox, y: oy - 14, w: 48, h: 62,
+      tip: "The communal oven", sub: "Knead — everyone's bread rises together",
+      draw: function (g, t) { GAME.drawOven(g, t, ox, oy); },
+      onClick: function () { GAME.kneadOven(); },
+    });
+
+    /* flour sacks by the oven */
+    add({ id: "b_sack1", x: 112, y: 250, w: 22, h: 20, spr: "sack", sx: 112, sy: 250, scale: 2, tip: "Flour sack", onClick: function (p) { GAME.sackPoof(p); } });
+    add({ id: "b_sack2", x: 118, y: 300, w: 22, h: 20, spr: "sack", sx: 118, sy: 300, scale: 2, tip: "More flour", onClick: function (p) { GAME.sackPoof(p); } });
+    add({ id: "b_barrel", x: 466, y: 300, w: 20, h: 20, spr: "barrel", sx: 466, sy: 300, scale: 2, tip: "Water barrel", onClick: function (p) { AUD.play("thud"); FX.dust(p.x + 10, p.y + 18); } });
+
+    /* chalkboard with the day's special */
+    add({
+      id: "b_board", x: 146, y: 26, w: 158, h: 98,
+      tip: "Today's board", sub: "Written in chalk, mostly legible",
+      draw: function (g) {
+        var words = GAME.bakerySpecial().split(" "), line = "", lines = [];
+        for (var i = 0; i < words.length; i++) {
+          var test = line ? line + " " + words[i] : words[i];
+          if (test.length > 20) { lines.push(line); line = words[i]; } else line = test;
+        }
+        if (line) lines.push(line);
+        for (i = 0; i < lines.length && i < 5; i++) PAINT.label(g, 225, 56 + i * 12, lines[i], PAL.cream);
+      },
+      onClick: function () { AUD.play("wobble"); },
+    });
+
+    /* the shy mouse (secret) */
+    add({
+      id: "b_mouse", x: 468, y: 350, w: 30, h: 24,
+      tip: "...", sub: "did something move?",
+      draw: function (g) {
+        if (GAME.mouseHidden()) return;
+        g.drawImage(SPR.mouse, 468, 350, SPR.mouse.width * 3, SPR.mouse.height * 3);
+      },
+      onClick: function () { if (!GAME.mouseHidden()) GAME.mouseSqueak(); },
+    });
+
+    /* way out */
+    add({
+      id: "b_exit", x: 228, y: 356, w: 64, h: 40,
+      tip: "Back to the village", sub: "Mind the step",
+      draw: function (g, t, hov) {
+        var c = hov ? PAL.glow2 : PAL.cream;
+        px(g, 250, 368, 18, 3, c);
+        px(g, 250, 364, 6, 3, c); px(g, 250, 372, 6, 3, c);
+        PAINT.label(g, 260, 378, "EXIT", hov ? PAL.glow1 : PAL.stone3);
+      },
+      onClick: function () { GAME.exitRoom(); },
+    });
+
+    function paintShelf(g, x, y) {
+      px(g, x, y + 12, 96, 3, PAL.wood0);
+      for (var i = 0; i < 4; i++) g.drawImage(SPR.loaf, x + 4 + i * 22, y, SPR.loaf.width * 2, SPR.loaf.height * 2);
+    }
+
+    function paint(g) {
+      var rnd = mulberry32(77);
+      /* floor */
+      px(g, 0, 0, W2, H2, PAL.wood1);
+      /* back wall */
+      px(g, 0, 0, W2, 150, "#5c4126");
+      for (var i = 0; i < 200; i++) px(g, (rnd() * W2) | 0, (rnd() * 150) | 0, 2, 2, rnd() < 0.5 ? "#664a2e" : "#513921");
+      for (var x = 0; x <= W2; x += 60) px(g, x, 0, 4, 150, PAL.wood0);
+      px(g, 0, 138, W2, 12, PAL.wood0);
+      px(g, 0, 150, W2, 4, "#3a2818");
+      /* floor planks */
+      for (var y = 168; y < H2; y += 20) px(g, 0, y, W2, 2, "#5a3d24");
+      for (x = 0; x <= W2; x += 70) px(g, x, 150, 2, H2 - 150, "#5a3d24");
+      /* rug */
+      px(g, 150, 306, 240, 76, PAL.roof0);
+      px(g, 158, 314, 224, 60, PAL.roof1);
+      px(g, 166, 322, 208, 44, "#7a3a2a");
+      /* window with a crescent moon */
+      px(g, 388, 22, 108, 84, PAL.wood0);
+      px(g, 394, 28, 96, 72, "#141a2e");
+      for (i = 0; i < 12; i++) px(g, (398 + rnd() * 88) | 0, (32 + rnd() * 62) | 0, 1, 1, PAL.glow1);
+      disk(g, 468, 54, 11, "#e8e4d8"); disk(g, 463, 51, 10, "#141a2e");
+      px(g, 441, 28, 2, 72, PAL.wood0); px(g, 394, 62, 96, 2, PAL.wood0);
+      /* wall shelves of loaves */
+      paintShelf(g, 20, 44); paintShelf(g, 20, 82);
+      /* chalkboard slate */
+      px(g, 146, 26, 158, 98, PAL.wood0);
+      px(g, 150, 30, 150, 90, "#12241c");
+      PAINT.label(g, 225, 40, "~ TODAY'S SPECIAL ~", "#9ee0c0");
+      /* oven body */
+      PAINT.oven(g, ox, oy);
+      /* counter + glass case */
+      px(g, 138, 250, 306, 56, PAL.wood2);
+      px(g, 138, 250, 306, 4, PAL.wood3);
+      px(g, 138, 302, 306, 4, PAL.wood0);
+      px(g, 150, 234, 284, 22, "rgba(158,224,232,0.10)");
+      px(g, 150, 234, 284, 2, "#9ee0e8"); px(g, 150, 254, 284, 2, "#3a4568");
+      /* exit mat */
+      px(g, 226, 372, 68, 22, PAL.path1);
+      px(g, 232, 376, 56, 14, PAL.path2);
+    }
+
+    function lights(g) {
+      var og = g.createRadialGradient(ox + 23, oy + 22, 2, ox + 23, oy + 22, 62);
+      og.addColorStop(0, "rgba(255,150,60,0.30)"); og.addColorStop(1, "rgba(255,150,60,0)");
+      g.fillStyle = og; g.fillRect(ox - 44, oy - 44, 128, 128);
+      var mg = g.createRadialGradient(442, 62, 4, 442, 62, 96);
+      mg.addColorStop(0, "rgba(154,184,255,0.10)"); mg.addColorStop(1, "rgba(154,184,255,0)");
+      g.fillStyle = mg; g.fillRect(346, 2, 190, 190);
+      var cg = g.createRadialGradient(290, 150, 2, 290, 150, 92);
+      cg.addColorStop(0, "rgba(255,184,77,0.13)"); cg.addColorStop(1, "rgba(255,184,77,0)");
+      g.fillStyle = cg; g.fillRect(198, 58, 184, 184);
+    }
+
+    rooms.bakery = { W: W2, H: H2, label: "THE BAKERY", paint: paint, props: rprops, lights: lights };
+  })();
+
+  /* ── The cafe interior ── */
+  (function buildCafeRoom() {
+    var W2 = 560, H2 = 420;
+    var rprops = [];
+    function add(p) { rprops.push(p); return p; }
+
+    /* counter drinks */
+    var DRINKS = [
+      ["espresso", "Espresso", "slurp"], ["latte", "Latte", "slurp"],
+      ["cocoa", "Cocoa", "pop"], ["chai", "Chai", "serve"], ["icedtea", "Iced Tea", "splash"],
+    ];
+    DRINKS.forEach(function (d, i) {
+      var s = SPR.cup, w = s.width * 3, h = s.height * 3, x = 312 + i * 34, y = 96;
+      add({
+        id: "drink_" + d[0], x: x, y: y, w: w, h: h,
+        tip: d[1], sub: "On the house",
+        draw: function (g, t, hov) {
+          var bob = hov && !CV.RM ? Math.round(Math.sin(t * 10)) : 0;
+          g.globalAlpha = GAME.isOrdered(d[0]) ? 0.4 : 1;
+          g.drawImage(s, x, y + bob, w, h);
+          g.globalAlpha = 1;
+          if (GAME.isOrdered(d[0])) g.drawImage(SPR.star, x + w - 6, y - 4);
+        },
+        onClick: function (p) { GAME.orderDrink(d[0], d[2]); FX.steam(x + w / 2, y - 2); },
+      });
+    });
+
+    /* espresso machine */
+    add({
+      id: "c_machine", x: 470, y: 84, w: 54, h: 46,
+      tip: "Espresso machine", sub: "Hisssss",
+      onClick: function (p) { AUD.play("slurp"); FX.steam(p.x + 20, p.y - 2); },
+    });
+
+    /* jukebox */
+    add({
+      id: "c_juke", x: 480, y: 250, w: 62, h: 96,
+      tip: "The jukebox", sub: "Give it a spin",
+      draw: function (g, t, hov) {
+        var st = GAME.jukeState();
+        px(g, 484, 246, 54, 6, PAL.wood2);          /* rounded top cap */
+        px(g, 480, 250, 62, 96, PAL.wood0);
+        px(g, 483, 253, 56, 90, "#2a1c3a");
+        px(g, 486, 258, 50, 8, "#5a4a6e");
+        /* screen */
+        px(g, 490, 272, 42, 16, "#0f1c24");
+        PAINT.label(g, 511, 276, st.playing ? "♪" : "▶", st.playing ? PAL.glow2 : "#9ee0e8");
+        /* light bars */
+        for (var i = 0; i < 3; i++) {
+          var lit = st.playing && ((((t * 6) | 0) + i) % 2 === 0);
+          px(g, 492 + i * 14, 296, 10, 8, lit ? PAL.orange : "#3a4568");
+        }
+        /* speaker grille */
+        for (i = 0; i < 4; i++) px(g, 490, 312 + i * 6, 42, 2, "#1a1226");
+      },
+      drawOver: function (g) {
+        var st = GAME.jukeState();
+        if (st.playing && st.label) PAINT.label(g, 511, 238, "~ " + st.label + " ~", PAL.glow1);
+      },
+      onClick: function () { GAME.playJuke(); },
+    });
+
+    /* bookshelf */
+    var BOOKS = [
+      ["Baking for Bots", "vol. I", null, PAL.roof1],
+      ["git blame", "a memoir", null, PAL.water1],
+      ["1600 x 1200", "a village atlas", null, PAL.grass3],
+      ["The Nerimity Papers", "opens a link", CV.NERIMITY, PAL.teto],
+      ["Repos & Recipes", "opens a link", CV.GITHUB, PAL.gold1],
+    ];
+    BOOKS.forEach(function (bk, i) {
+      var x = 40 + i * 30, y = 258, w = 24, h = 78;
+      add({
+        id: "book_" + i, x: x, y: y, w: w, h: h,
+        tip: bk[0], sub: bk[1],
+        draw: function (g, t, hov) {
+          var lean = hov && !CV.RM ? -2 : 0;
+          g.globalAlpha = GAME.isRead(i) ? 0.5 : 1;
+          px(g, x + lean, y, w, h, bk[3]);
+          px(g, x + lean, y, w, 4, PAL.night0);
+          px(g, x + lean, y + h - 4, w, 4, PAL.night0);
+          px(g, x + lean + 3, y + 14, w - 6, 2, PAL.cream);
+          px(g, x + lean + 3, y + 20, w - 6, 2, PAL.cream);
+          g.globalAlpha = 1;
+        },
+        onClick: function () { GAME.readBook(i, bk[2]); },
+      });
+    });
+
+    /* corkboard note → a friend */
+    add({
+      id: "c_cork", x: 452, y: 168, w: 60, h: 46,
+      tip: "Friends corkboard", sub: "Hatsune:MIKU was here",
+      draw: function (g) {
+        px(g, 452, 168, 60, 46, PAL.wood1);
+        px(g, 455, 171, 54, 40, "#a8895e");
+        px(g, 460, 176, 18, 14, "#9ee0e8"); px(g, 461, 177, 1, 1, PAL.red);
+        px(g, 484, 180, 16, 16, PAL.cream); px(g, 485, 181, 1, 1, PAL.red);
+        px(g, 466, 194, 20, 12, PAL.pink);
+      },
+      onClick: function () { AUD.play("pop"); GAME.openLink(CV.FRIEND_MIKU); },
+    });
+
+    /* a candlelit table */
+    add({
+      id: "c_candle", x: 150, y: 300, w: 24, h: 30,
+      tip: "A candle", sub: "Somebody's been here recently",
+      draw: function (g, t) {
+        px(g, 158, 316, 8, 12, PAL.cream);          /* candle */
+        if (!CV.RM) {
+          var f = Math.abs(Math.sin(t * 8));
+          px(g, 160 + Math.sin(t * 11), 308, 4, 6, "rgba(255,184,77," + (0.6 + f * 0.4) + ")");
+          px(g, 161, 306 + Math.sin(t * 17), 2, 2, PAL.glow2);
+        } else px(g, 160, 308, 4, 5, PAL.glow0);
+      },
+      onClick: function (p) { AUD.play("pop"); FX.sparkle(p.x + 12, p.y + 6); },
+    });
+
+    /* way out */
+    add({
+      id: "c_exit", x: 250, y: 380, w: 64, h: 40,
+      tip: "Back to the village", sub: "Come again",
+      draw: function (g, t, hov) {
+        var c = hov ? PAL.glow2 : PAL.cream;
+        px(g, 272, 392, 18, 3, c);
+        px(g, 272, 388, 6, 3, c); px(g, 272, 396, 6, 3, c);
+        PAINT.label(g, 282, 402, "EXIT", hov ? PAL.glow1 : PAL.stone3);
+      },
+      onClick: function () { GAME.exitRoom(); },
+    });
+
+    function paint(g) {
+      var rnd = mulberry32(313);
+      /* floor + wall */
+      px(g, 0, 0, W2, H2, "#20283f");
+      px(g, 0, 0, W2, 150, "#241a2e");
+      for (var x = 0; x <= W2; x += 56) px(g, x, 0, 3, 150, "#1a1220");
+      px(g, 0, 140, W2, 10, PAL.wood0);
+      /* checker floor */
+      for (var yy = 150; yy < H2; yy += 24)
+        for (var xx = 0; xx < W2; xx += 24)
+          px(g, xx, yy, 24, 24, (((xx / 24) | 0) + ((yy / 24) | 0)) % 2 ? "#2a3350" : "#222a42");
+      /* window */
+      px(g, 40, 22, 112, 86, PAL.wood0);
+      px(g, 46, 28, 100, 74, "#0f1c24");
+      for (var i = 0; i < 14; i++) px(g, (50 + rnd() * 92) | 0, (32 + rnd() * 66) | 0, 1, 1, "#9ee0e8");
+      px(g, 95, 28, 2, 74, PAL.wood0); px(g, 46, 64, 100, 2, PAL.wood0);
+      /* back counter */
+      px(g, 300, 120, 244, 42, PAL.wood2);
+      px(g, 300, 120, 244, 4, PAL.wood3);
+      px(g, 300, 158, 244, 6, PAL.wood0);
+      /* shelf of cups behind */
+      px(g, 312, 92, 130, 3, PAL.wood0);
+      for (i = 0; i < 5; i++) g.drawImage(SPR.cup, 316 + i * 24, 78, SPR.cup.width * 1.4, SPR.cup.height * 1.4);
+      /* espresso machine body */
+      px(g, 470, 84, 54, 40, PAL.stone2); px(g, 470, 84, 54, 6, PAL.stone3);
+      px(g, 478, 96, 12, 10, PAL.iron); px(g, 500, 96, 12, 10, PAL.iron);
+      px(g, 482, 120, 6, 12, PAL.stone1); px(g, 506, 120, 6, 12, PAL.stone1);
+      /* bookshelf frame */
+      px(g, 30, 250, 158, 96, PAL.wood0);
+      px(g, 34, 254, 150, 88, "#2a1c14");
+      px(g, 34, 338, 150, 4, PAL.wood1);
+      /* a small round table under the candle */
+      disk(g, 162, 340, 26, PAL.wood0);
+      disk(g, 162, 338, 24, PAL.wood2);
+      px(g, 160, 340, 4, 40, PAL.wood0);
+      /* exit mat */
+      px(g, 248, 396, 68, 20, PAL.path1);
+      px(g, 254, 400, 56, 12, PAL.path2);
+    }
+
+    function lights(g, t) {
+      /* candle */
+      var cf = 0.16 + Math.abs(Math.sin(t * 8)) * 0.1;
+      var cg = g.createRadialGradient(162, 308, 2, 162, 308, 60);
+      cg.addColorStop(0, "rgba(255,150,60," + cf.toFixed(2) + ")"); cg.addColorStop(1, "rgba(255,150,60,0)");
+      g.fillStyle = cg; g.fillRect(102, 248, 120, 120);
+      /* teal window */
+      var wg = g.createRadialGradient(96, 64, 4, 96, 64, 96);
+      wg.addColorStop(0, "rgba(158,224,232,0.10)"); wg.addColorStop(1, "rgba(158,224,232,0)");
+      g.fillStyle = wg; g.fillRect(0, 0, 192, 180);
+      /* jukebox pulse */
+      if (GAME.jukeState().playing) {
+        var jg = g.createRadialGradient(511, 300, 2, 511, 300, 70);
+        jg.addColorStop(0, "rgba(255,152,56,0.16)"); jg.addColorStop(1, "rgba(255,152,56,0)");
+        g.fillStyle = jg; g.fillRect(441, 230, 140, 140);
+      }
+    }
+
+    rooms.cafe = { W: W2, H: H2, label: "THE CAFE", paint: paint, props: rprops, lights: lights };
+  })();
+
   return {
     W: W, H: H,
     zones: zones,
@@ -712,5 +1064,6 @@ var WORLD = (function () {
     paintStatic: paintStatic,
     addStageRepos: addStageRepos,
     catBounds: [150, 870, 430, 280],
+    rooms: rooms,
   };
 })();

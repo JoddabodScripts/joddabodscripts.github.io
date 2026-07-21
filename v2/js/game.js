@@ -24,6 +24,13 @@ var FX = {};   /* particle helpers */
   bg.width = WORLD.W; bg.height = WORLD.H;
   WORLD.paintStatic(bg.getContext("2d"));
 
+  /* ── Scenes ──
+     The village is one scene; each building interior is its own little map
+     you walk into. A scene owns its size, background, and prop list. */
+  var outdoorScene = { id: "outdoor", W: WORLD.W, H: WORLD.H, bg: bg, props: WORLD.props, outdoor: true };
+  var scene = outdoorScene;
+  var roomCache = {};
+
   var vignette = null;
 
   function resize() {
@@ -368,14 +375,15 @@ var FX = {};   /* particle helpers */
     if (e.key === "Escape") {
       closeEmoteMenu();
       closePanels();
+      if (!scene.outdoor) GAME.exitRoom();
     }
   });
 
   /* ────────────────────────────── hit testing ── */
   function propAt(wxp, wyp) {
     var best = null, bestArea = Infinity;
-    for (var i = 0; i < WORLD.props.length; i++) {
-      var p = WORLD.props[i];
+    for (var i = 0; i < scene.props.length; i++) {
+      var p = scene.props[i];
       if (wxp >= p.x && wxp <= p.x + p.w && wyp >= p.y && wyp <= p.y + p.h) {
         var area = p.w * p.h;
         if (area < bestArea) { best = p; bestArea = area; }
@@ -396,8 +404,10 @@ var FX = {};   /* particle helpers */
 
   function handleClick(sx, sy) {
     var w = screenToWorld(sx, sy);
-    var bag = baguetteAt(w[0], w[1]);
-    if (bag) { collectBaguette(bag.id, bag.x, bag.y); return; }
+    if (scene.outdoor) {
+      var bag = baguetteAt(w[0], w[1]);
+      if (bag) { collectBaguette(bag.id, bag.x, bag.y); return; }
+    }
     var p = propAt(w[0], w[1]);
     if (p && p.onClick) { p.onClick(p, w[0], w[1]); return; }
     /* clicking nothing still does a little something */
@@ -732,6 +742,7 @@ var FX = {};   /* particle helpers */
     setTimeout(function () { AUD.play("ding"); }, 500);
     FX.breadPop(WORLD.oven.x + 23, WORLD.oven.y + 20);
     if (oven.contributed) earnBadge("firstloaf");
+    if (oven.contributed && GAME.allLampsOff && GAME.allLampsOff()) earnBadge("moonbaker");
     oven.contributed = false;
   }
 
@@ -770,6 +781,18 @@ var FX = {};   /* particle helpers */
       AUD.play("splash");
       GAME.ripple("fountain", f.x + (Math.random() - 0.5) * 16, f.y + (Math.random() - 0.5) * 8);
     }, 620);
+    var total = SAVE.addCoin();
+    if (total >= 10 && !SAVE.data.secrets.wish) {
+      SAVE.data.secrets.wish = true;
+      SAVE.commit();
+      setTimeout(function () {
+        AUD.play("sparkle");
+        FX.starRain(f.x - 30, f.x + 30, f.y - 10);
+        FX.ring(f.x, f.y);
+        earnBadge("wishmaker");
+        showToast("A wish granted", "The fountain keeps your secret. (10 coins in.)", SPR.coin);
+      }, 700);
+    }
   };
 
   GAME.sackPoof = function (p) {
@@ -785,6 +808,29 @@ var FX = {};   /* particle helpers */
     AUD.play("sparkle");
   };
   GAME.revealed = function (key) { return !!revealed[key]; };
+
+  /* ── Lamps → the constellation ──
+     Turn every lamp off and the sky answers. A crumb-shaped constellation
+     glows in over the village until a lamp is lit again. */
+  var CONSTELLATION = [
+    [712, 128], [740, 104], [772, 94], [806, 90],
+    [840, 96], [870, 112], [890, 136], [806, 66],
+  ];
+  function allLampsOff() {
+    for (var i = 0; i < WORLD.lamps.length; i++) {
+      if (!GAME.flags.lampOff[i]) return false;
+    }
+    return true;
+  }
+  GAME.allLampsOff = allLampsOff;
+  GAME.checkLamps = function () {
+    if (allLampsOff() && !SAVE.data.secrets.lamps) {
+      SAVE.data.secrets.lamps = true;
+      SAVE.commit();
+      earnBadge("lamplighter");
+      showToast("Lights out", "The village sleeps — look up", SPR.star);
+    }
+  };
 
   GAME.shakeTree = function (p) {
     AUD.play("rustle");
@@ -944,12 +990,13 @@ var FX = {};   /* particle helpers */
       d.className = "badge" + (earned ? "" : " locked");
       d.appendChild(scaleSprite(SPR.medal, 2));
       var txt = document.createElement("div");
+      var secret = !!BADGES[id].secret;
       var n = document.createElement("div");
       n.className = "b-name";
-      n.textContent = earned || id !== "encore" ? BADGES[id].name : "???";
+      n.textContent = earned || !secret ? BADGES[id].name : "???";
       var ds = document.createElement("div");
       ds.className = "b-desc";
-      ds.textContent = earned ? BADGES[id].desc : id === "encore" ? "Secret" : BADGES[id].desc;
+      ds.textContent = earned ? BADGES[id].desc : secret ? "Secret" : BADGES[id].desc;
       txt.appendChild(n); txt.appendChild(ds);
       d.appendChild(txt);
       list.appendChild(d);
@@ -1004,8 +1051,137 @@ var FX = {};   /* particle helpers */
     if (id === "panel-well") {
       el("well-baguette").classList.toggle("taken", SAVE.hasBaguette("b15"));
     }
+    var pk = { "panel-house": "house", "panel-hats": "hats", "panel-well": "well" }[id];
+    if (pk) markInterior(pk);
   }
   GAME.openPanel = openPanel;
+
+  /* records which of the five interiors you've stepped into → Explorer */
+  function markInterior(key) {
+    SAVE.addInterior(key);
+    var need = ["bakery", "cafe", "house", "hats", "well"];
+    if (need.every(function (k) { return SAVE.data.interiors.indexOf(k) !== -1; })) {
+      earnBadge("explorer");
+    }
+  }
+
+  /* ══════════════════════════════ interior rooms ══
+     Each building has a real interior scene you walk into (world.js paints
+     it and lists its props). enterRoom swaps the active scene; exitRoom
+     drops you back where you were standing outside. */
+  function getRoom(id) {
+    if (roomCache[id]) return roomCache[id];
+    var def = WORLD.rooms[id];
+    var c = document.createElement("canvas");
+    c.width = def.W; c.height = def.H;
+    def.paint(c.getContext("2d"));
+    roomCache[id] = {
+      id: id, W: def.W, H: def.H, bg: c,
+      props: def.props, lights: def.lights, label: def.label, outdoor: false,
+    };
+    return roomCache[id];
+  }
+
+  var returnCam = { x: 0, y: 0 };
+  var roomZoneTimer = null;
+  var leaveBtn = el("leave-room");
+  if (leaveBtn) leaveBtn.addEventListener("click", function () { GAME.exitRoom(); });
+
+  function flashZone(text) {
+    zoneTagEl.textContent = text;
+    zoneTagEl.hidden = false;
+    zoneTagEl.classList.add("show");
+    clearTimeout(roomZoneTimer);
+    roomZoneTimer = setTimeout(function () { zoneTagEl.classList.remove("show"); }, 2000);
+  }
+
+  var BAKERY_SPECIALS = [
+    "Sourdough, proofed overnight while the cat supervised.",
+    "Cardamom buns. Recipe's a secret (it's just cardamom).",
+    "Day-old baguettes: now with character.",
+    "Cinnamon knots, slightly wrong on purpose.",
+    "Cursor-shaped shortbread. Uncanny. Delicious.",
+  ];
+  var bakerySpecial = BAKERY_SPECIALS[0];
+  GAME.bakerySpecial = function () { return bakerySpecial; };
+
+  GAME.enterRoom = function (id) {
+    if (!WORLD.rooms || !WORLD.rooms[id] || !scene.outdoor) return;
+    returnCam.x = cam.x; returnCam.y = cam.y;
+    scene = getRoom(id);
+    cam.x = scene.W / 2 - vw / 2;
+    cam.y = scene.H / 2 - vh / 2;
+    camVel.x = camVel.y = 0;
+    hoverProp = null; hoverBag = null;
+    closeEmoteMenu();
+    if (id === "bakery") bakerySpecial = BAKERY_SPECIALS[(Math.random() * BAKERY_SPECIALS.length) | 0];
+    markInterior(id);
+    flashZone(scene.label);
+    if (leaveBtn) leaveBtn.hidden = false;
+  };
+
+  GAME.exitRoom = function () {
+    if (scene.outdoor) return;
+    AUD.play("door");
+    scene = outdoorScene;
+    cam.x = returnCam.x; cam.y = returnCam.y;
+    camVel.x = camVel.y = 0;
+    hoverProp = null;
+    if (leaveBtn) leaveBtn.hidden = true;
+  };
+
+  /* interior interaction state (session-scoped; badges persist) */
+  var TREATS = ["loaf", "baguette", "croissant", "cookie", "cupcake", "donut", "pretzel"];
+  var DRINKS = ["espresso", "latte", "cocoa", "chai", "icedtea"];
+  var tasted = {}, ordered = {}, booksRead = {};
+  var BOOK_TOTAL = 5;
+
+  GAME.tasteTreat = function (id) {
+    AUD.play("pop");
+    if (tasted[id]) return;
+    tasted[id] = true;
+    if (TREATS.every(function (t) { return tasted[t]; })) earnBadge("sweettooth");
+  };
+  GAME.isTasted = function (id) { return !!tasted[id]; };
+
+  GAME.orderDrink = function (id, sfx) {
+    AUD.play(sfx || "slurp");
+    if (ordered[id]) return;
+    ordered[id] = true;
+    if (DRINKS.every(function (t) { return ordered[t]; })) earnBadge("caffeinated");
+  };
+  GAME.isOrdered = function (id) { return !!ordered[id]; };
+
+  GAME.readBook = function (idx, url) {
+    AUD.play("rustle");
+    booksRead[idx] = true;
+    if (Object.keys(booksRead).length >= BOOK_TOTAL) earnBadge("bookworm");
+    if (url) GAME.openLink(url);
+  };
+  GAME.isRead = function (idx) { return !!booksRead[idx]; };
+
+  var juke = { idx: 0, until: 0, label: "" };
+  var JUKE_TRACKS = ["crumbwave", "lo-fi loaves", "3am in dubai", "night shift", "oneko's theme"];
+  GAME.playJuke = function () {
+    AUD.play(juke.idx % 2 ? "chime" : "jingle");
+    juke.label = JUKE_TRACKS[juke.idx % JUKE_TRACKS.length];
+    juke.idx++;
+    juke.until = performance.now() + 2600;
+  };
+  GAME.jukeState = function () {
+    return { playing: performance.now() < juke.until, label: juke.label };
+  };
+
+  var mouseHideUntil = 0, mouseFound = false;
+  GAME.mouseSqueak = function () {
+    AUD.play("wiggle");
+    mouseHideUntil = performance.now() + 1600;
+    if (!mouseFound) {
+      mouseFound = true;
+      showToast("Eek!", "A flour-dusted mouse skitters off behind the ovens", SPR.mouse);
+    }
+  };
+  GAME.mouseHidden = function () { return performance.now() < mouseHideUntil; };
 
   function closePanels() { overlayEl.hidden = true; }
 
@@ -1016,20 +1192,48 @@ var FX = {};   /* particle helpers */
     b.addEventListener("click", closePanels);
   });
 
-  /* house shelf */
+  /* house shelf — every tool is a real tool now: click for its story */
   (function buildShelf() {
     var TECHS = [
-      ["tool_hammer", "JavaScript"], ["tool_wrench", "TypeScript"],
-      ["tool_screwdriver", "Go"], ["tool_saw", "Git"],
-      ["tool_brush", "Docker"], ["tool_oilcan", "SQLite"],
-      ["tool_ruler", "Arch Linux"], ["tool_pliers", "Linux"],
+      ["tool_hammer", "JavaScript", "the one that started it all."],
+      ["tool_wrench", "TypeScript", "JavaScript that went to finishing school."],
+      ["tool_screwdriver", "Go", "for when the bots need to be fast."],
+      ["tool_saw", "Git", "undo, but make it a lifestyle."],
+      ["tool_brush", "Docker", "\"it works on my machine\" — now everywhere."],
+      ["tool_oilcan", "SQLite", "a whole database in one little file."],
+      ["tool_ruler", "Arch Linux", "yes, I use it. btw."],
+      ["tool_pliers", "Linux", "home."],
     ];
     var shelf = el("shelf");
+    var blurb = document.createElement("p");
+    blurb.className = "shelf-label";
+    blurb.id = "tool-blurb";
+    blurb.textContent = "pick one up";
+    shelf.parentNode.insertBefore(blurb, shelf.nextSibling);
+
+    var picked = {};
     TECHS.forEach(function (t) {
-      var d = document.createElement("div");
+      var d = document.createElement("button");
       d.className = "tool";
+      d.type = "button";
       d.title = t[1];
       d.appendChild(scaleSprite(SPR[t[0]], 3));
+      d.addEventListener("click", function () {
+        AUD.play("thud");
+        blurb.innerHTML = "";
+        var b = document.createElement("span");
+        b.className = "accent";
+        b.textContent = t[1] + " — ";
+        blurb.appendChild(b);
+        blurb.appendChild(document.createTextNode(t[2]));
+        if (!picked[t[1]]) {
+          picked[t[1]] = true;
+          if (TECHS.every(function (x) { return picked[x[1]]; })) {
+            earnBadge("handy");
+            showToast("Tidy toolbox", "A note was tucked behind it: \"the well remembers 31\"", SPR.tool_hammer);
+          }
+        }
+      });
       shelf.appendChild(d);
     });
   })();
@@ -1086,7 +1290,7 @@ var FX = {};   /* particle helpers */
   var zoneTagTimer = null;
 
   setInterval(function () {
-    if (!pointerIn) return;
+    if (!pointerIn || !scene.outdoor) return;
     var found = null;
     for (var i = 0; i < allZoneIds.length; i++) {
       var z = WORLD.zones[allZoneIds[i]].r;
@@ -1163,30 +1367,36 @@ var FX = {};   /* particle helpers */
       cam.x += camVel.x * dt;
       cam.y += camVel.y * dt;
     }
-    cam.x = Math.max(0, Math.min(WORLD.W - vw, cam.x));
-    cam.y = Math.max(0, Math.min(WORLD.H - vh, cam.y));
-    if (WORLD.W < vw) cam.x = (WORLD.W - vw) / 2;
-    if (WORLD.H < vh) cam.y = (WORLD.H - vh) / 2;
+    cam.x = Math.max(0, Math.min(scene.W - vw, cam.x));
+    cam.y = Math.max(0, Math.min(scene.H - vh, cam.y));
+    if (scene.W < vw) cam.x = (scene.W - vw) / 2;
+    if (scene.H < vh) cam.y = (scene.H - vh) / 2;
 
     /* my avatar */
     var w = screenToWorld(mx, my);
     wx = w[0]; wy = w[1];
-    if (pointerIn) NET.sendMove(wx, wy);
+    if (scene.outdoor && pointerIn) NET.sendMove(wx, wy);
 
-    /* remote interpolation */
-    NET.others.forEach(function (o) {
-      if (!o.has) return;
-      var k = Math.min(1, dt * 10);
-      o.x += (o.tx - o.x) * k;
-      o.y += (o.ty - o.y) * k;
-    });
+    /* remote interpolation (village only) */
+    if (scene.outdoor) {
+      NET.others.forEach(function (o) {
+        if (!o.has) return;
+        var k = Math.min(1, dt * 10);
+        o.x += (o.tx - o.x) * k;
+        o.y += (o.ty - o.y) * k;
+      });
+    }
 
     /* hover */
     hoverProp = pointerIn ? propAt(wx, wy) : null;
 
-    /* oven progress easing */
+    /* oven progress easing (shared by the village + the bakery interior) */
     oven.shownP += (oven.p - oven.shownP) * Math.min(1, dt * 6);
     if (Math.abs(oven.p - oven.shownP) < 0.5) oven.shownP = oven.p;
+
+    updateParts(dt);
+
+    if (!scene.outdoor) return;
 
     GAME.flags.treeShake = Math.max(0, GAME.flags.treeShake - dt);
 
@@ -1206,7 +1416,6 @@ var FX = {};   /* particle helpers */
       ripples[k].forEach(function (r) { r.t += dt * 1.2; });
     });
 
-    updateParts(dt);
     updateDucks(dt);
     updateCat(dt);
 
@@ -1226,17 +1435,17 @@ var FX = {};   /* particle helpers */
   function draw() {
     var cx = Math.round(cam.x), cy2 = Math.round(cam.y);
     g.clearRect(0, 0, vw, vh);
-    g.drawImage(bg, cx, cy2, vw, vh, 0, 0, vw, vh);
+    g.drawImage(scene.bg, cx, cy2, vw, vh, 0, 0, vw, vh);
 
     g.save();
     g.translate(-cx, -cy2);
 
-    drawBaguettes(g, time);
+    if (scene.outdoor) drawBaguettes(g, time);
 
     /* props */
     var i, p;
-    for (i = 0; i < WORLD.props.length; i++) {
-      p = WORLD.props[i];
+    for (i = 0; i < scene.props.length; i++) {
+      p = scene.props[i];
       var hov = p === hoverProp;
       if (p.spr) {
         var s = scaleCache(SPR[p.spr], p.scale || 2);
@@ -1245,8 +1454,8 @@ var FX = {};   /* particle helpers */
       }
       if (p.draw) p.draw(g, time, hov);
     }
-    for (i = 0; i < WORLD.props.length; i++) {
-      p = WORLD.props[i];
+    for (i = 0; i < scene.props.length; i++) {
+      p = scene.props[i];
       if (p.drawOver) p.drawOver(g, time, p === hoverProp);
     }
 
@@ -1255,15 +1464,17 @@ var FX = {};   /* particle helpers */
     if (hoverBag) drawBrackets(g, hoverBag.x - 2, hoverBag.y - 3, 18, 11);
 
     drawParts(g);
-    drawCat(g);
 
-    /* remote players */
-    NET.others.forEach(function (o, id) {
-      if (!o.has) return;
-      g.globalAlpha = 0.95;
-      drawAvatar(g, o.x, o.y, o.c, o.h, remoteWiggles[id] > performance.now());
-      g.globalAlpha = 1;
-    });
+    /* remote players + the cat live in the village only */
+    if (scene.outdoor) {
+      drawCat(g);
+      NET.others.forEach(function (o, id) {
+        if (!o.has) return;
+        g.globalAlpha = 0.95;
+        drawAvatar(g, o.x, o.y, o.c, o.h, remoteWiggles[id] > performance.now());
+        g.globalAlpha = 1;
+      });
+    }
 
     /* me */
     if (pointerIn) {
@@ -1274,6 +1485,13 @@ var FX = {};   /* particle helpers */
 
     /* ── lighting ── */
     g.globalCompositeOperation = "lighter";
+    if (!scene.outdoor) {
+      if (scene.lights) scene.lights(g, time);
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      g.drawImage(vignette, 0, 0);
+      return;
+    }
     /* lamps */
     for (i = 0; i < WORLD.lamps.length; i++) {
       if (GAME.flags.lampOff[i]) continue;
@@ -1331,6 +1549,28 @@ var FX = {};   /* particle helpers */
       g.fillRect(fl.x, fl.y, 1, 1);
       g.fillStyle = "rgba(255,217,138," + (pulse * 0.25).toFixed(2) + ")";
       g.fillRect(fl.x - 1, fl.y - 1, 3, 3);
+    }
+    /* constellation — only when the whole village is dark */
+    if (allLampsOff()) {
+      var tw = 0.55 + Math.sin(time * 1.5) * 0.2;
+      g.strokeStyle = "rgba(154,184,255,0.18)";
+      g.lineWidth = 1;
+      g.beginPath();
+      for (i = 0; i < 7; i++) {
+        var a0 = CONSTELLATION[i], a1 = CONSTELLATION[i + 1];
+        g.moveTo(a0[0] + 0.5, a0[1] + 0.5);
+        g.lineTo(a1[0] + 0.5, a1[1] + 0.5);
+      }
+      g.stroke();
+      for (i = 0; i < CONSTELLATION.length; i++) {
+        var c0 = CONSTELLATION[i];
+        var tg = g.createRadialGradient(c0[0], c0[1], 0, c0[0], c0[1], 7);
+        tg.addColorStop(0, "rgba(255,243,201," + tw.toFixed(2) + ")");
+        tg.addColorStop(1, "rgba(255,243,201,0)");
+        g.fillStyle = tg;
+        g.fillRect(c0[0] - 7, c0[1] - 7, 14, 14);
+        g.drawImage(SPR.star, c0[0] - 2, c0[1] - 2);
+      }
     }
     g.globalCompositeOperation = "source-over";
 

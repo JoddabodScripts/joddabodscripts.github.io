@@ -3,14 +3,22 @@
    about you. Clearing site data resets the village's opinion of you. */
 
 var BADGES = {
-  firstloaf: { name: "First Loaf",  desc: "Helped bake a batch of bread" },
-  regular:   { name: "Regular",     desc: "Visited on 3 different days" },
-  nightowl:  { name: "Night Owl",   desc: "Visited between midnight and 5am" },
-  catperson: { name: "Cat Person",  desc: "Petted the cat 5 times" },
-  critic:    { name: "Critic",      desc: "Played every record on the stage" },
-  wanderer:  { name: "Wanderer",    desc: "Visited every corner of the village" },
-  socialite: { name: "Socialite",   desc: "Emoted at another visitor" },
-  encore:    { name: "???",         desc: "The band remembers" },
+  firstloaf:   { name: "First Loaf",   desc: "Helped bake a batch of bread" },
+  regular:     { name: "Regular",      desc: "Visited on 3 different days" },
+  nightowl:    { name: "Night Owl",    desc: "Visited between midnight and 5am" },
+  catperson:   { name: "Cat Person",   desc: "Petted the cat 5 times" },
+  critic:      { name: "Critic",       desc: "Played every record on the stage" },
+  wanderer:    { name: "Wanderer",     desc: "Visited every corner of the village" },
+  socialite:   { name: "Socialite",    desc: "Emoted at another visitor" },
+  sweettooth:  { name: "Sweet Tooth",  desc: "Sampled every treat in the bakery" },
+  caffeinated: { name: "Caffeinated",  desc: "Ordered every drink at the cafe" },
+  bookworm:    { name: "Bookworm",     desc: "Read every book on the cafe shelf" },
+  handy:       { name: "Handy",        desc: "Opened Joddabod's whole toolbox" },
+  explorer:    { name: "Explorer",     desc: "Stepped inside every building" },
+  lamplighter: { name: "Lamplighter",  desc: "Put the whole village to bed", secret: true },
+  wishmaker:   { name: "Wishmaker",    desc: "Whispered a wish to the fountain", secret: true },
+  moonbaker:   { name: "Moonbaker",    desc: "Baked with the constellation watching", secret: true },
+  encore:      { name: "???",          desc: "The band remembers", secret: true },
 };
 
 /* unlock() runs against SAVE.data */
@@ -25,6 +33,10 @@ var HATS = {
              unlock: function (d) { return !!d.badges.wanderer; } },
   drills:  { name: "Drill Twintails", spr: "hat_drills",  cond: "Keep finding baguettes...",
              unlock: function (d) { return d.bag.length >= 8; } },
+  toque:   { name: "Baker's Toque",   spr: "hat_toque",   cond: "Sample every bakery treat",
+             unlock: function (d) { return !!d.badges.sweettooth; } },
+  cap:     { name: "Explorer's Cap",  spr: "hat_cap",     cond: "Step inside every building",
+             unlock: function (d) { return !!d.badges.explorer; } },
   crown:   { name: "Crumb Crown",     spr: "hat_crown",   cond: "Find all 15 baguettes",
              unlock: function (d) { return d.bag.length >= CV.BAGUETTE_TOTAL; } },
 };
@@ -38,11 +50,13 @@ var SAVE = (function () {
     pets: 0,          /* oneko pets */
     played: [],       /* repo names played on stage */
     zones: [],        /* zones visited */
+    interiors: [],    /* building interiors stepped into */
+    coinsTotal: 0,    /* coins ever tossed in the fountain */
     loaves: 0,        /* solo-mode loaves */
     ovenP: 0,         /* solo-mode oven progress 0..100 */
     sound: true,
     music: false,
-    secrets: { well: false, song: false },
+    secrets: { well: false, song: false, lamps: false, wish: false },
   };
 
   var data;
@@ -101,6 +115,22 @@ var SAVE = (function () {
         return true;
       }
       return false;
+    },
+
+    /* returns true the first time this interior is entered */
+    addInterior: function (id) {
+      if (data.interiors.indexOf(id) === -1) {
+        data.interiors.push(id);
+        commit();
+        return true;
+      }
+      return false;
+    },
+
+    addCoin: function () {
+      data.coinsTotal = (data.coinsTotal || 0) + 1;
+      commit();
+      return data.coinsTotal;
     },
 
     touchToday: function () {
